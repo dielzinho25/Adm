@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ADM</title>
+
+<style>
+body{
+  font-family:Arial;
+  padding:20px;
+  background:#f5f5f5;
+}
+
+.topo{
+  background:#000;
+  color:#fff;
+  padding:12px;
+  border-radius:10px;
+  text-align:center;
+  font-size:20px;
+}
+
+.card{
+  background:#fff;
+  padding:15px;
+  margin-top:12px;
+  border-radius:12px;
+  box-shadow:0 3px 8px rgba(0,0,0,0.1);
+}
+
+.info{font-size:18px;margin:4px 0;}
+.valor{font-size:22px;color:green;font-weight:bold;}
+
+button{
+  width:100%;
+  padding:12px;
+  margin-top:6px;
+  border:none;
+  border-radius:8px;
+  font-size:15px;
+}
+
+.btn-cancelar{background:red;color:white;}
+.btn-restaurar{background:orange;color:white;}
+.btn-mapa{background:#2196F3;color:white;}
+.btn-toggle{background:#444;color:white;}
+
+.total{
+  background:#000;
+  color:#fff;
+  padding:10px;
+  border-radius:10px;
+  text-align:center;
+  margin-top:10px;
+  font-size:18px;
+}
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+
+</head>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+
+<body>
+
+<div class="topo">👨‍💼 Painel ADM</div>
+
+<div class="total" id="totalDia">💰 Total do dia: R$ 0</div>
+
+<button class="btn-toggle" onclick="toggleGanhos()">
+📊 Ver ganhos por entregador
+</button>
+
+<div id="ganhosBox" style="display:none;"></div>
+
+<div id="lista"></div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase.js"></script>
+
+<script>
+
+firebase.initializeApp({
+apiKey: "AIzaSyDrtZxbKXk7hjlqBL_BLoZMTBdc5iqBCXo",
+authDomain: "ferramentas-projeto.firebaseapp.com",
+databaseURL: "https://ferramentas-projeto.firebaseio.com/",
+projectId: "ferramentas-projeto"
+});
+
+let ganhosVisivel=false;
+
+function toggleGanhos(){
+ganhosVisivel=!ganhosVisivel;
+ganhosBox.style.display = ganhosVisivel ? "block" : "none";
+}
+
+// ==========================
+// 💰 GANHOS + TOTAL DO DIA
+// ==========================
+firebase.database().ref().on("value",snap=>{
+
+let html="";
+let totalDia = 0;
+let hoje = new Date().toLocaleDateString();
+
+// 🔹 FUNÇÃO PARA SOMAR
+function somarValor(d){
+let valor = parseFloat((d.valor+"").replace(",", ".")) || 0;
+if(d.data === hoje){
+totalDia += valor;
+}
+}
+
+// 🔹 PEDIDOS
+if(snap.child("pedidos").exists()){
+snap.child("pedidos").forEach(c=>{
+let d=c.val();
+somarValor(d);
+html+=cardHTML(c.key,d,"pedidos");
+});
+}
+
+// 🔹 ENTREGAS
+if(snap.child("entregas").exists()){
+
+snap.child("entregas").forEach(userSnap=>{
+
+let userId = userSnap.key;
+
+userSnap.forEach(c=>{
+let d=c.val();
+somarValor(d);
+html+=cardHTML(c.key,d,"entregas",userId);
+});
+
+});
+
+}
+
+// 🔹 FINALIZADOS
+if(snap.child("finalizados").exists()){
+snap.child("finalizados").forEach(c=>{
+let d=c.val();
+somarValor(d);
+html+=cardHTML(c.key,d,"finalizados");
+});
+}
+
+// 🔹 ATUALIZA TOTAL
+document.getElementById("totalDia").innerHTML =
+"💰 Total do dia: R$ " + totalDia.toFixed(2);
+
+// 🔹 MOSTRA LISTA
+lista.innerHTML=html;
+
+});
+
+// ==========================
+// 📋 CARD
+// ==========================
+function cardHTML(id,d,tipo,userId=""){
+
+return `
+<div class="card">
+
+<div class="info">🆔 ${id}</div>
+<div class="info">📦 ${d.status}</div>
+<div class="info">🏪 ${d.empresa}</div>
+<div class="info">👤 ${d.nomeDono}</div>
+<div class="info">🧍 ${d.nomeCliente}</div>
+<div class="info">🚴 ${d.entregadorNome || "—"}</div>
+<div class="valor">💰 R$ ${d.valor}</div>
+<div class="info">📍 ${d.endereco}</div>
+
+<button class="btn-mapa" onclick="verMapa('${d.local}')">
+📍 Ver Local
+</button>
+
+<button class="btn-cancelar" onclick="cancelar('${tipo}','${id}','${userId}')">
+❌ Cancelar
+</button>
+
+<button class="btn-restaurar" onclick="reagendar('${id}','${userId}')">
+⏰ Reagendar
+</button>
+
+<button onclick="verHistorico('${d.entregadorId}')">
+📊 Ver histórico
+</button>
+
+</div>`;
+}
+
+// ==========================
+// 📊 HISTÓRICO
+// ==========================
+function verHistorico(id){
+
+if(!id){
+alert("Sem entregador");
+return;
+}
+
+firebase.database().ref("ganhosEntregador/"+id).once("value")
+.then(snap=>{
+
+let html = "";
+let total = 0;
+let nome = "Entregador";
+
+snap.forEach(pedido=>{
+
+  let d = pedido.val();
+  let pedidoId = pedido.key; // 🔥 PEGA O ID
+
+  let valor = parseFloat((d.valor+"").replace(",", ".")) || 0;
+
+  total += valor;
+
+  if(d.entregadorNome){
+    nome = d.entregadorNome;
+  }
+
+  html += `
+  <div class="card">
+    📅 ${d.data}<br>
+    💰 R$ ${valor.toFixed(2)}<br>
+
+    <button onclick="excluirGanho('${id}','${pedidoId}')">
+    🗑️ Excluir
+    </button>
+
+  </div>
+  `;
+
+});
+
+// 🔥 Cabeçalho
+html = `
+<div class="card" style="background:#000;color:#fff;">
+🚴 ${nome}
+</div>
+` + html;
+
+// 🔥 Total
+html += `
+<div class="card" style="background:#000;color:#fff;">
+💰 TOTAL: R$ ${total.toFixed(2)}
+</div>
+`;
+
+ganhosBox.innerHTML = html;
+ganhosBox.style.display = "block";
+
+});
+}
+
+// excluir ganhos//
+function excluirGanho(userId, pedidoId){
+
+if(!confirm("Deseja excluir este ganho?")) return;
+
+firebase.database()
+.ref("ganhosEntregador/"+userId+"/"+pedidoId)
+.remove()
+.then(()=>{
+alert("Excluído com sucesso!");
+verHistorico(userId); // 🔄 atualiza tela
+});
+
+}
+
+// ==========================
+// 📍 MAPA
+// ==========================
+function verMapa(local){
+
+if(!local){
+alert("Sem localização");
+return;
+}
+
+window.open("https://www.google.com/maps?q=" + local);
+
+}
+
+// ==========================
+// ❌ CANCELAR
+// ==========================
+function cancelar(tipo,id,userId){
+
+if(tipo === "entregas"){
+firebase.database().ref("entregas/"+userId+"/"+id).remove();
+}else{
+firebase.database().ref(tipo+"/"+id).remove();
+}
+
+}
+
+// ==========================
+// ⏰ REAGENDAR
+// ==========================
+function reagendar(id,userId){
+
+firebase.database().ref("entregas/"+userId+"/"+id).once("value")
+.then(s=>{
+
+if(!s.exists()) return;
+
+let d=s.val();
+
+d.status="aguardando";
+
+firebase.database().ref("pedidos/"+id).set(d);
+firebase.database().ref("entregas/"+userId+"/"+id).remove();
+
+});
+
+}
+
+</script>
+
+</body>
+</html>
