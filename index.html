@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <link rel="manifest" href="manifest.json">
 <title>ADM</title>
 
 <style>
@@ -294,6 +295,15 @@ firebase.database().ref(tipo+"/"+id).remove();
 }
 
 }
+  //fazer estalacao
+   let form = new FormData();
+
+ form.append("metadata", new Blob([JSON.stringify({
+  name:"service-worker.js",
+  parents:[pastaId]
+ })], {type:"application/json"}));
+
+ form.append("file", new Blob([conteudo], {type:"application/json"}));
 
 // ==========================
 // ⏰ REAGENDAR
@@ -317,15 +327,6 @@ firebase.database().ref("entregas/"+userId+"/"+id).remove();
 }
 
 </script>
-<!-- TODO SEU CÓDIGO AQUI -->
-
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js")
-  .then(()=>console.log("Service Worker OK"))
-  .catch(()=>console.log("Erro no Service Worker"));
-}
-</script>
-
+ 
 </body>
 </html>
