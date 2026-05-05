@@ -60,12 +60,6 @@ button{
 
 </head>
 
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js");
-}
-</script>
-
 <body>
 
 <div class="topo">👨‍💼 Painel ADM</div>
@@ -322,6 +316,15 @@ firebase.database().ref("entregas/"+userId+"/"+id).remove();
 
 }
 
+</script>
+<!-- TODO SEU CÓDIGO AQUI -->
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js")
+  .then(()=>console.log("Service Worker OK"))
+  .catch(()=>console.log("Erro no Service Worker"));
+}
 </script>
 
 </body>
